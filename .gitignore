@@ -1,0 +1,15 @@
+# Database (runtime data)
+mindshare.db
+
+# API keys
+*.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+logs/
+
+# Claude
+.claude/
