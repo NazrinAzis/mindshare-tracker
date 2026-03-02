@@ -62,6 +62,33 @@ CREATE TABLE IF NOT EXISTS youtube_data (
     UNIQUE(game_id, snapshot_date)
 );
 
+-- Reddit activity snapshots
+CREATE TABLE IF NOT EXISTS reddit_data (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id         INTEGER NOT NULL REFERENCES games(id),
+    snapshot_date   TEXT NOT NULL,
+    post_count      INTEGER,
+    total_score     INTEGER,
+    top_post_score  INTEGER,
+    top_post_title  TEXT,
+    created_at      TEXT,
+    UNIQUE(game_id, snapshot_date)
+);
+
+-- Twitch live stream snapshots
+CREATE TABLE IF NOT EXISTS twitch_data (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id             INTEGER NOT NULL REFERENCES games(id),
+    snapshot_date       TEXT NOT NULL,
+    twitch_game_id      TEXT,
+    viewer_count        INTEGER,
+    stream_count        INTEGER,
+    avg_viewers         INTEGER,
+    top_stream_viewers  INTEGER,
+    created_at          TEXT,
+    UNIQUE(game_id, snapshot_date)
+);
+
 -- Computed mindSHARE scores (derived table)
 CREATE TABLE IF NOT EXISTS mindshare_scores (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,10 +98,14 @@ CREATE TABLE IF NOT EXISTS mindshare_scores (
     steam_score_normalized  REAL,
     google_score_normalized REAL,
     youtube_score_normalized REAL,
+    reddit_score_normalized  REAL,
+    twitch_score_normalized  REAL,
     -- Weights used
-    steam_weight            REAL DEFAULT 0.20,
-    google_weight           REAL DEFAULT 0.45,
-    youtube_weight          REAL DEFAULT 0.35,
+    steam_weight            REAL DEFAULT 0.15,
+    google_weight           REAL DEFAULT 0.30,
+    youtube_weight          REAL DEFAULT 0.20,
+    reddit_weight           REAL DEFAULT 0.10,
+    twitch_weight           REAL DEFAULT 0.25,
     -- Final score (0-100)
     mindshare_score         REAL,
     created_at              TEXT DEFAULT (datetime('now')),

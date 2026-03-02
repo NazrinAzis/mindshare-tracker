@@ -35,6 +35,9 @@ def get_dashboard_data():
                 -- raw Steam owner range
                 sd.owners_min            AS steam_owners_min,
                 sd.owners_max            AS steam_owners_max,
+                -- raw Reddit + Twitch
+                rd.total_score           AS reddit_raw,
+                td.viewer_count          AS twitch_raw,
                 -- previous snapshot score for delta
                 prev.mindshare_score     AS prev_score
             FROM mindshare_scores ms
@@ -49,6 +52,12 @@ def get_dashboard_data():
             LEFT JOIN steam_data sd
                 ON sd.game_id = ms.game_id
                 AND sd.snapshot_date = (SELECT MAX(snapshot_date) FROM steam_data)
+            LEFT JOIN reddit_data rd
+                ON rd.game_id = ms.game_id
+                AND rd.snapshot_date = (SELECT MAX(snapshot_date) FROM reddit_data)
+            LEFT JOIN twitch_data td
+                ON td.game_id = ms.game_id
+                AND td.snapshot_date = (SELECT MAX(snapshot_date) FROM twitch_data)
             -- previous week's score for delta
             LEFT JOIN mindshare_scores prev
                 ON prev.game_id = ms.game_id
@@ -94,6 +103,28 @@ def fmt_steam(owners_min, owners_max):
     else:
         label = f"{owners_min}+"
     return f'<span class="raw-val">{label}</span><span class="raw-unit"> owners</span>'
+
+
+def fmt_reddit(total_score):
+    if total_score is None:
+        return '<span class="raw-na">No data</span>'
+    if total_score >= 1_000_000:
+        return f'<span class="raw-val">{total_score/1_000_000:.1f}M</span><span class="raw-unit"> pts</span>'
+    if total_score >= 1_000:
+        return f'<span class="raw-val">{total_score/1_000:.0f}K</span><span class="raw-unit"> pts</span>'
+    return f'<span class="raw-val">{total_score}</span><span class="raw-unit"> pts</span>'
+
+
+def fmt_twitch(viewer_count):
+    if viewer_count is None:
+        return '<span class="raw-na">No data</span>'
+    if viewer_count == 0:
+        return '<span class="raw-na">No streams</span>'
+    if viewer_count >= 1_000_000:
+        return f'<span class="raw-val">{viewer_count/1_000_000:.1f}M</span><span class="raw-unit"> viewers</span>'
+    if viewer_count >= 1_000:
+        return f'<span class="raw-val">{viewer_count/1_000:.0f}K</span><span class="raw-unit"> viewers</span>'
+    return f'<span class="raw-val">{viewer_count}</span><span class="raw-unit"> viewers</span>'
 
 
 def fmt_delta(current, previous):
@@ -171,8 +202,10 @@ def build_rows_html(rows):
                 <span class="score-delta">{delta_html}</span>
             </td>
             <td class="raw-cell">{fmt_google(row['google_raw'])}</td>
+            <td class="raw-cell">{fmt_twitch(row['twitch_raw'])}</td>
             <td class="raw-cell">{fmt_youtube(row['youtube_raw'])}</td>
             <td class="raw-cell">{fmt_steam(row['steam_owners_min'], row['steam_owners_max'])}</td>
+            <td class="raw-cell">{fmt_reddit(row['reddit_raw'])}</td>
         </tr>"""
     return html
 
@@ -455,7 +488,7 @@ def build_html(released, upcoming, snapshot_date):
     <span class="disclaimer-dot">&middot;</span>
     mindSHARE scores are <strong>relative to the tracked game list</strong>, not absolute market share.
     <span class="disclaimer-dot">&middot;</span>
-    Google Trends &amp; YouTube scores reflect the last 28 days.
+    Google Trends &amp; YouTube reflect the last 28 days &middot; Reddit reflects the last 7 days &middot; Twitch is a live snapshot.
     <span class="disclaimer-dot">&middot;</span>
     Steam owners are estimated ranges from SteamSpy.
 </div>
@@ -496,9 +529,11 @@ def build_html(released, upcoming, snapshot_date):
 
 <div class="info-bar">
     <span>Weights:</span>
-    <span class="weight-chip">🔍 Google <b>45%</b></span>
-    <span class="weight-chip">▶ YouTube <b>35%</b></span>
-    <span class="weight-chip">🎮 Steam <b>20%</b></span>
+    <span class="weight-chip">🔍 Google <b>30%</b></span>
+    <span class="weight-chip">🟣 Twitch <b>25%</b></span>
+    <span class="weight-chip">▶ YouTube <b>20%</b></span>
+    <span class="weight-chip">🎮 Steam <b>15%</b></span>
+    <span class="weight-chip">🟠 Reddit <b>10%</b></span>
     &nbsp;&nbsp;
     <span class="legend-item"><span class="legend-dot" style="background:#00ff88"></span>&nbsp;High (&ge;35)</span>&nbsp;
     <span class="legend-item"><span class="legend-dot" style="background:#ffd700"></span>&nbsp;Medium (15–35)</span>&nbsp;
@@ -513,14 +548,18 @@ def build_html(released, upcoming, snapshot_date):
                 <th>Game</th>
                 <th>Status</th>
                 <th class="center"
-                    data-tip="Composite score (0–100) weighted across Google, YouTube and Steam signals. Scores are relative to the tracked game list — not absolute market share.">
+                    data-tip="Composite score (0–100) weighted across 5 signals: Google Trends (30%), Twitch (25%), YouTube (20%), Steam (15%), Reddit (10%). Scores are relative to the tracked game list — not absolute market share.">
                     mindSHARE ⓘ</th>
                 <th data-tip="Google Trends interest score (0–100). Measures relative search volume over the last 3 months. 100 = peak interest for that term. Source: Google Trends (aggregated, anonymised).">
                     🔍 Google Trends ⓘ</th>
+                <th data-tip="Total concurrent viewers across all live streams of this game on Twitch at time of snapshot. Strong real-time engagement signal. Source: Twitch Helix API.">
+                    🟣 Twitch Viewers ⓘ</th>
                 <th data-tip="View count of the most-viewed recent gameplay video on YouTube, published in the last 28 days. Proxy for active content creation &amp; audience engagement. Source: YouTube Data API v3.">
                     ▶ YouTube Views ⓘ</th>
                 <th data-tip="Estimated total Steam owner count (lower bound of range). Reflects cumulative PC installs — not active players. Source: SteamSpy (estimated, not official Valve data).">
                     🎮 Steam Owners ⓘ</th>
+                <th data-tip="Sum of upvote scores across the top 100 Reddit posts mentioning this game in the last 7 days. Reflects community discussion volume and sentiment. Source: Reddit public search API.">
+                    🟠 Reddit Score ⓘ</th>
             </tr>
         </thead>
         <tbody>{released_rows}</tbody>
@@ -536,8 +575,10 @@ def build_html(released, upcoming, snapshot_date):
 
 <div class="info-bar">
     <span>Weights:</span>
-    <span class="weight-chip">🔍 Google <b>60%</b></span>
-    <span class="weight-chip">▶ YouTube <b>40%</b></span>
+    <span class="weight-chip">🔍 Google <b>35%</b></span>
+    <span class="weight-chip">🟠 Reddit <b>25%</b></span>
+    <span class="weight-chip">▶ YouTube <b>25%</b></span>
+    <span class="weight-chip">🟣 Twitch <b>15%</b></span>
     <span class="weight-chip muted">🎮 Steam <b>0%</b></span>
     &nbsp;&nbsp;
     <span style="color:#bf9aff88; font-size:0.7rem;">
@@ -553,14 +594,18 @@ def build_html(released, upcoming, snapshot_date):
                 <th>Game</th>
                 <th>Status</th>
                 <th class="center"
-                    data-tip="Pre-launch mindSHARE: composite buzz score weighted across Google search interest (60%) and YouTube trailer/preview views (40%). No Steam data available pre-launch.">
+                    data-tip="Pre-launch mindSHARE: composite buzz score weighted across Google (35%), Reddit (25%), YouTube (25%), Twitch (15%). Steam excluded — no player data pre-launch.">
                     Pre-launch Score ⓘ</th>
                 <th data-tip="Google Trends interest score (0–100). Measures relative search volume over the last 3 months. Higher = more people searching for this title. Source: Google Trends.">
                     🔍 Google Trends ⓘ</th>
+                <th data-tip="Total concurrent viewers across all live streams of this game on Twitch. Even pre-launch, developer streams and early access streams drive viewership. Source: Twitch Helix API.">
+                    🟣 Twitch Viewers ⓘ</th>
                 <th data-tip="View count of the most-viewed recent trailer or preview video on YouTube in the last 28 days. Key pre-launch hype signal. Source: YouTube Data API v3.">
                     ▶ YouTube Views ⓘ</th>
                 <th data-tip="Not applicable for upcoming games — SteamSpy only tracks released titles. Will populate after launch.">
                     🎮 Steam Owners ⓘ</th>
+                <th data-tip="Sum of upvote scores across the top 100 Reddit posts mentioning this game in the last 7 days. Strong pre-launch community buzz signal. Source: Reddit public search API.">
+                    🟠 Reddit Score ⓘ</th>
             </tr>
         </thead>
         <tbody>{upcoming_rows}</tbody>
@@ -569,7 +614,7 @@ def build_html(released, upcoming, snapshot_date):
 
 <footer>
     mindSHARE TRACKER &mdash; DATA REFRESHES WEEKLY &mdash;
-    POWERED BY STEAMSPY &middot; GOOGLE TRENDS &middot; YOUTUBE DATA API V3 &mdash;
+    POWERED BY STEAMSPY &middot; GOOGLE TRENDS &middot; YOUTUBE DATA API V3 &middot; REDDIT &middot; TWITCH HELIX API &mdash;
     ALL DATA AGGREGATED &middot; NO USER-LEVEL TRACKING
 </footer>
 
