@@ -1,6 +1,3 @@
-# Database (runtime data)
-mindshare.db
-
 # API keys
 *.env
 

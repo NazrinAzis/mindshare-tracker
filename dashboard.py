@@ -670,9 +670,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    port = 8080
-    server = HTTPServer(("localhost", port), DashboardHandler)
-    print(f"mindSHARE dashboard running at http://localhost:{port}")
+    import os
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), DashboardHandler)
+    print(f"mindSHARE dashboard running at http://0.0.0.0:{port}")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
