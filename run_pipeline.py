@@ -8,6 +8,7 @@ Usage:
     python run_pipeline.py --youtube    # YouTube only
     python run_pipeline.py --reddit     # Reddit only
     python run_pipeline.py --twitch     # Twitch only
+    python run_pipeline.py --tiktok     # TikTok only
     python run_pipeline.py --score      # Compute scores only (no fetching)
 """
 
@@ -21,10 +22,11 @@ def main():
     parser.add_argument("--youtube", action="store_true", help="Fetch YouTube data only")
     parser.add_argument("--reddit",  action="store_true", help="Fetch Reddit data only")
     parser.add_argument("--twitch",  action="store_true", help="Fetch Twitch data only")
+    parser.add_argument("--tiktok",  action="store_true", help="Fetch TikTok data only")
     parser.add_argument("--score",   action="store_true", help="Compute mindSHARE scores only")
     args = parser.parse_args()
 
-    run_all = not any([args.steam, args.google, args.youtube, args.reddit, args.twitch, args.score])
+    run_all = not any([args.steam, args.google, args.youtube, args.reddit, args.twitch, args.tiktok, args.score])
 
     from db import init_db
     init_db()
@@ -64,9 +66,16 @@ def main():
         import fetch_twitch
         fetch_twitch.run()
 
+    if run_all or args.tiktok:
+        print("\n" + "="*50)
+        print("STEP 6: TikTok")
+        print("="*50)
+        import fetch_tiktok
+        fetch_tiktok.run()
+
     if run_all or args.score:
         print("\n" + "="*50)
-        print("STEP 6: Compute mindSHARE scores")
+        print("STEP 7: Compute mindSHARE scores")
         print("="*50)
         import compute_mindshare
         compute_mindshare.run()

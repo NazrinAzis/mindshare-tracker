@@ -89,6 +89,20 @@ CREATE TABLE IF NOT EXISTS twitch_data (
     UNIQUE(game_id, snapshot_date)
 );
 
+-- TikTok video snapshots
+CREATE TABLE IF NOT EXISTS tiktok_data (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id         INTEGER NOT NULL REFERENCES games(id),
+    snapshot_date   TEXT NOT NULL,
+    video_count     INTEGER,
+    total_views     INTEGER,
+    total_likes     INTEGER,
+    top_video_views INTEGER,
+    query_used      TEXT,
+    created_at      TEXT DEFAULT (datetime('now')),
+    UNIQUE(game_id, snapshot_date)
+);
+
 -- Computed mindSHARE scores (derived table)
 CREATE TABLE IF NOT EXISTS mindshare_scores (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,

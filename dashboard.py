@@ -38,6 +38,8 @@ def get_dashboard_data():
                 -- raw Reddit + Twitch
                 rd.total_score           AS reddit_raw,
                 td.viewer_count          AS twitch_raw,
+                -- raw TikTok
+                tk.total_views           AS tiktok_raw,
                 -- previous snapshot score for delta
                 prev.mindshare_score     AS prev_score
             FROM mindshare_scores ms
@@ -58,6 +60,9 @@ def get_dashboard_data():
             LEFT JOIN twitch_data td
                 ON td.game_id = ms.game_id
                 AND td.snapshot_date = (SELECT MAX(snapshot_date) FROM twitch_data)
+            LEFT JOIN tiktok_data tk
+                ON tk.game_id = ms.game_id
+                AND tk.snapshot_date = (SELECT MAX(snapshot_date) FROM tiktok_data)
             -- previous week's score for delta
             LEFT JOIN mindshare_scores prev
                 ON prev.game_id = ms.game_id
@@ -113,6 +118,18 @@ def fmt_reddit(total_score):
     if total_score >= 1_000:
         return f'<span class="raw-val">{total_score/1_000:.0f}K</span><span class="raw-unit"> pts</span>'
     return f'<span class="raw-val">{total_score}</span><span class="raw-unit"> pts</span>'
+
+
+def fmt_tiktok(total_views):
+    if total_views is None:
+        return '<span class="raw-na">No data</span>'
+    if total_views == 0:
+        return '<span class="raw-na">No videos</span>'
+    if total_views >= 1_000_000:
+        return f'<span class="raw-val">{total_views/1_000_000:.1f}M</span><span class="raw-unit"> views</span>'
+    if total_views >= 1_000:
+        return f'<span class="raw-val">{total_views/1_000:.0f}K</span><span class="raw-unit"> views</span>'
+    return f'<span class="raw-val">{total_views}</span><span class="raw-unit"> views</span>'
 
 
 def fmt_twitch(viewer_count):
@@ -206,6 +223,7 @@ def build_rows_html(rows):
             <td class="raw-cell">{fmt_youtube(row['youtube_raw'])}</td>
             <td class="raw-cell">{fmt_steam(row['steam_owners_min'], row['steam_owners_max'])}</td>
             <td class="raw-cell">{fmt_reddit(row['reddit_raw'])}</td>
+            <td class="raw-cell">{fmt_tiktok(row['tiktok_raw'])}</td>
         </tr>"""
     return html
 
@@ -529,11 +547,12 @@ def build_html(released, upcoming, snapshot_date):
 
 <div class="info-bar">
     <span>Weights:</span>
-    <span class="weight-chip">🔍 Google <b>30%</b></span>
-    <span class="weight-chip">🟣 Twitch <b>25%</b></span>
-    <span class="weight-chip">▶ YouTube <b>20%</b></span>
-    <span class="weight-chip">🎮 Steam <b>15%</b></span>
-    <span class="weight-chip">🟠 Reddit <b>10%</b></span>
+    <span class="weight-chip">🔍 Google <b>27%</b></span>
+    <span class="weight-chip">🟣 Twitch <b>22.5%</b></span>
+    <span class="weight-chip">▶ YouTube <b>18%</b></span>
+    <span class="weight-chip">🎮 Steam <b>13.5%</b></span>
+    <span class="weight-chip">🟠 Reddit <b>9%</b></span>
+    <span class="weight-chip">🎵 TikTok <b>10%</b></span>
     &nbsp;&nbsp;
     <span class="legend-item"><span class="legend-dot" style="background:#00ff88"></span>&nbsp;High (&ge;35)</span>&nbsp;
     <span class="legend-item"><span class="legend-dot" style="background:#ffd700"></span>&nbsp;Medium (15–35)</span>&nbsp;
@@ -548,7 +567,7 @@ def build_html(released, upcoming, snapshot_date):
                 <th>Game</th>
                 <th>Status</th>
                 <th class="center"
-                    data-tip="Composite score (0–100) weighted across 5 signals: Google Trends (30%), Twitch (25%), YouTube (20%), Steam (15%), Reddit (10%). Scores are relative to the tracked game list — not absolute market share.">
+                    data-tip="Composite score (0–100) weighted across 6 signals: Google Trends (27%), Twitch (22.5%), YouTube (18%), Steam (13.5%), Reddit (9%), TikTok (10%). Scores are relative to the tracked game list — not absolute market share.">
                     mindSHARE ⓘ</th>
                 <th data-tip="Google Trends interest score (0–100). Measures relative search volume over the last 3 months. 100 = peak interest for that term. Source: Google Trends (aggregated, anonymised).">
                     🔍 Google Trends ⓘ</th>
@@ -560,6 +579,8 @@ def build_html(released, upcoming, snapshot_date):
                     🎮 Steam Owners ⓘ</th>
                 <th data-tip="Sum of upvote scores across the top 100 Reddit posts mentioning this game in the last 7 days. Reflects community discussion volume and sentiment. Source: Reddit public search API.">
                     🟠 Reddit Score ⓘ</th>
+                <th data-tip="Total views across the top 100 TikTok videos mentioning this game in the last 28 days. Reflects short-form content reach and viral momentum. Source: TikTok Research API.">
+                    🎵 TikTok Views ⓘ</th>
             </tr>
         </thead>
         <tbody>{released_rows}</tbody>
@@ -575,10 +596,11 @@ def build_html(released, upcoming, snapshot_date):
 
 <div class="info-bar">
     <span>Weights:</span>
-    <span class="weight-chip">🔍 Google <b>35%</b></span>
-    <span class="weight-chip">🟠 Reddit <b>25%</b></span>
-    <span class="weight-chip">▶ YouTube <b>25%</b></span>
-    <span class="weight-chip">🟣 Twitch <b>15%</b></span>
+    <span class="weight-chip">🔍 Google <b>31.5%</b></span>
+    <span class="weight-chip">🟠 Reddit <b>22.5%</b></span>
+    <span class="weight-chip">▶ YouTube <b>22.5%</b></span>
+    <span class="weight-chip">🟣 Twitch <b>13.5%</b></span>
+    <span class="weight-chip">🎵 TikTok <b>10%</b></span>
     <span class="weight-chip muted">🎮 Steam <b>0%</b></span>
     &nbsp;&nbsp;
     <span style="color:#bf9aff88; font-size:0.7rem;">
@@ -594,7 +616,7 @@ def build_html(released, upcoming, snapshot_date):
                 <th>Game</th>
                 <th>Status</th>
                 <th class="center"
-                    data-tip="Pre-launch mindSHARE: composite buzz score weighted across Google (35%), Reddit (25%), YouTube (25%), Twitch (15%). Steam excluded — no player data pre-launch.">
+                    data-tip="Pre-launch mindSHARE: composite buzz score weighted across Google (31.5%), Reddit (22.5%), YouTube (22.5%), Twitch (13.5%), TikTok (10%). Steam excluded — no player data pre-launch.">
                     Pre-launch Score ⓘ</th>
                 <th data-tip="Google Trends interest score (0–100). Measures relative search volume over the last 3 months. Higher = more people searching for this title. Source: Google Trends.">
                     🔍 Google Trends ⓘ</th>
@@ -606,6 +628,8 @@ def build_html(released, upcoming, snapshot_date):
                     🎮 Steam Owners ⓘ</th>
                 <th data-tip="Sum of upvote scores across the top 100 Reddit posts mentioning this game in the last 7 days. Strong pre-launch community buzz signal. Source: Reddit public search API.">
                     🟠 Reddit Score ⓘ</th>
+                <th data-tip="Total views across the top 100 TikTok videos mentioning this game in the last 28 days. Key pre-launch viral signal. Source: TikTok Research API.">
+                    🎵 TikTok Views ⓘ</th>
             </tr>
         </thead>
         <tbody>{upcoming_rows}</tbody>
@@ -614,7 +638,7 @@ def build_html(released, upcoming, snapshot_date):
 
 <footer>
     mindSHARE TRACKER &mdash; DATA REFRESHES WEEKLY &mdash;
-    POWERED BY STEAMSPY &middot; GOOGLE TRENDS &middot; YOUTUBE DATA API V3 &middot; REDDIT &middot; TWITCH HELIX API &mdash;
+    POWERED BY STEAMSPY &middot; GOOGLE TRENDS &middot; YOUTUBE DATA API V3 &middot; REDDIT &middot; TWITCH HELIX API &middot; TIKTOK RESEARCH API &mdash;
     ALL DATA AGGREGATED &middot; NO USER-LEVEL TRACKING
 </footer>
 

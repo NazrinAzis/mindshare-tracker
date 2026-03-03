@@ -16,6 +16,19 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+def migrate_db():
+    """Add new columns to existing tables (idempotent)."""
+    with get_connection() as conn:
+        for col, definition in [
+            ("tiktok_score_normalized", "REAL"),
+            ("tiktok_weight", "REAL DEFAULT 0.10"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE mindshare_scores ADD COLUMN {col} {definition}")
+            except sqlite3.OperationalError:
+                pass  # column already exists
+
+
 def init_db():
     """Create tables and seed initial data from schema.sql"""
     if not SCHEMA_PATH.exists():
@@ -23,6 +36,7 @@ def init_db():
 
     with get_connection() as conn:
         conn.executescript(SCHEMA_PATH.read_text())
+    migrate_db()
     print(f"✅ Database initialized at {DB_PATH}")
 
 
